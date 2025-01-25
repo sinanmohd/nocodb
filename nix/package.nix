@@ -1,8 +1,7 @@
 {
   lib,
   stdenv,
-  nodePackages,
-  pnpm,
+  nodejs_22,
   sqlite,
   pkg-config,
   rsync,
@@ -10,7 +9,9 @@
   node-gyp,
   vips,
 }:
-
+let
+  pnpm = nodejs_22.pkgs.pnpm;
+in
 stdenv.mkDerivation (finalAttrs: {
   pname = "nocodb";
   version = "0.260.2";
@@ -19,7 +20,7 @@ stdenv.mkDerivation (finalAttrs: {
   buildPhase = ''
     export NODE_OPTIONS="--max_old_space_size=16384"
     export NUXT_TELEMETRY_DISABLED=1
-    export npm_config_nodedir=${nodePackages.nodejs}
+    export npm_config_nodedir=${nodejs_22}
 
     pnpm --filter=nocodb-sdk run build
     pnpm run registerIntegrations
@@ -50,34 +51,42 @@ stdenv.mkDerivation (finalAttrs: {
     cp -r ./node_modules $out/share/nocodb/node_modules
     cp -r ./packages/nocodb/node_modules $out/share/nocodb/packages/nocodb/node_modules
 
-    makeWrapper "${lib.getExe nodePackages.nodejs}" "$out/bin/${finalAttrs.pname}" \
+    makeWrapper "${lib.getExe nodejs_22}" "$out/bin/${finalAttrs.pname}" \
       --set NODE_ENV production \
       --add-flags "$out/share/nocodb/packages/nocodb/index.js"
   '';
 
   nativeBuildInputs = [
-    nodePackages.pnpm
+    pnpm
     pnpm.configHook
     node-gyp
 
     rsync
     makeWrapper
     pkg-config
-    (nodePackages.nodejs.python.withPackages (p: [
+    (nodejs_22.python.withPackages (p: [
       p.distutils
     ]))
   ];
 
   buildInputs = [
-    nodePackages.nodejs
+    nodejs_22
     sqlite
     vips
   ];
 
-  pnpmDeps = pnpm.fetchDeps {
+  pnpmDeps = ((pnpm.fetchDeps {
     inherit (finalAttrs) pname version src;
-    hash = "sha256-jvMpIqgD/dUxEIlzW06c9aQ83nj4dShLKSGikRcM+Xo=";
-  };
+    hash = "sha256-jvMpIqgD/dUxEIlzW06c9aQ83nj4dSdLKSGikRcM+Xo=";
+  }).overrideAttrs {
+  nativeBuildInputs = [
+          nodejs_22
+  ];
+            installPhase = ''
+        node -v
+    '';
+
+      });
 
   meta = {
     description = "Open Source Airtable Alternative";
